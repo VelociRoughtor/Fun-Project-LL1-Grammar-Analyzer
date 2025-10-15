@@ -22,8 +22,6 @@ F->(E)"></textarea>
 
     <!-- Button Row -->
     <div class="flex flex-wrap items-center gap-3 mt-5">
-      
-      <!-- Upload Section -->
       <label class="flex items-center gap-2 cursor-pointer bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 transition">
         <input id="fileInput" type="file" accept=".txt" class="hidden" />
         📂 Upload file
@@ -37,7 +35,6 @@ F->(E)"></textarea>
       <button id="analyzeBtn" class="px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700 transition">Analyze</button>
     </div>
 
-    <!-- File name (left aligned now) -->
     <p id="fileName" class="mt-2 text-gray-600 text-sm"></p>
 
     <div id="results" class="mt-6 space-y-6"></div>
@@ -133,18 +130,32 @@ function buildTable(grammar,order,FIRST,FOLLOW){
 
 // ---------- Rendering ----------
 function renderSetTable(title,map,order){
-  let h=`<div><h3 class="text-lg font-semibold mb-2">${title}</h3>
-  <div class="overflow-auto"><table class="min-w-full border border-gray-300 text-sm">
-  <thead class="bg-gray-100"><tr><th class="p-2 border text-left">Non-Term</th><th class="p-2 border text-left">Set</th></tr></thead><tbody>`;
-  for(const A of order){h+=`<tr><td class="border p-2 font-medium">${A}</td>
-  <td class="border p-2">{ ${Array.from(map[A]||[]).join(", ")} }</td></tr>`;}
-  h+=`</tbody></table></div></div>`; return h;
+  let h=`<div class="w-full"><h3 class="text-lg font-semibold mb-2">${title}</h3>
+  <div class="overflow-auto">
+    <table class="w-full table-fixed border border-gray-300 text-sm">
+      <thead class="bg-gray-100">
+        <tr>
+          <th class="p-2 border text-left w-1/3">Non-Terminals, X</th>
+          <th class="p-2 border text-left w-2/3">Set</th>
+        </tr>
+      </thead>
+      <tbody>`;
+  for(const A of order){
+    h+=`<tr>
+      <td class="border p-2 font-medium">${A}</td>
+      <td class="border p-2">{ ${Array.from(map[A]||[]).join(", ")} }</td>
+    </tr>`;
+  }
+  h+=`</tbody></table></div></div>`;
+  return h;
 }
+
 function renderParsingTable(title,table,termVec,order){
-  let h=`<div><h3 class="text-lg font-semibold mb-2">${title}</h3>
-  <div class="overflow-auto"><table class="min-w-full border border-gray-300 text-sm">
-  <thead class="bg-gray-100"><tr><th class="p-2 border"> </th>`;
-  for(const t of termVec) h+=`<th class="p-2 border">${t}</th>`;
+  let h=`<div class="w-full"><h3 class="text-lg font-semibold mb-2">${title}</h3>
+  <div class="overflow-auto">
+    <table class="w-full table-fixed border border-gray-300 text-sm">
+      <thead class="bg-gray-100"><tr><th class="p-2 border w-1/12"> </th>`;
+  for(const t of termVec) h+=`<th class="p-2 border text-center">${t}</th>`;
   h+=`</tr></thead><tbody>`;
   for(const A of order){
     h+=`<tr><td class="border p-2 font-medium">${A}</td>`;
@@ -153,7 +164,8 @@ function renderParsingTable(title,table,termVec,order){
     }
     h+=`</tr>`;
   }
-  h+=`</tbody></table></div></div>`; return h;
+  h+=`</tbody></table></div></div>`;
+  return h;
 }
 
 // ---------- Main ----------
