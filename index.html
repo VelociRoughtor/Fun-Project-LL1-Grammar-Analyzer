@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>LL(1) Grammar Analyzer — FIRST / FOLLOW / Table</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 text-gray-900 min-h-screen">
+  <div class="max-w-4xl mx-auto p-6">
+    <h1 class="text-2xl font-bold text-center mb-6 text-blue-600">LL(1) Grammar Analyzer</h1>
+
+    <label class="block mb-2 font-medium text-gray-500">Enter grammar (one production per line). Use '@' for epsilon:</label>
+    <textarea id="inputGrammar" rows="8" class="w-full p-3 border rounded-md font-mono shadow-sm focus:ring-2 focus:ring-blue-400" placeholder="E->TP
+P->@
+P->+TP
+T->FQ
+Q->@
+Q->*FQ
+F->i
+F->(E)"></textarea>
+
+    <!-- Button Row -->
+    <div class="flex flex-wrap items-center gap-3 mt-5">
+      
+      <!-- Upload Section -->
+      <label class="flex items-center gap-2 cursor-pointer bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 transition">
+        <input id="fileInput" type="file" accept=".txt" class="hidden" />
+        📂 Upload file
+      </label>
+      <span class="text-gray-500 text-sm">(.txt file only)</span>
+
+      <span class="text-gray-500 font-medium">or</span>
+
+      <button id="exampleBtn" class="px-4 py-2 rounded bg-gray-200 hover:bg-gray-300 transition">Load Example</button>
+
+      <button id="analyzeBtn" class="px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700 transition">Analyze</button>
+    </div>
+
+    <!-- File name (left aligned now) -->
+    <p id="fileName" class="mt-2 text-gray-600 text-sm"></p>
+
+    <div id="results" class="mt-6 space-y-6"></div>
+  </div>
+
+<script>
+// ---------- Utility ----------
+function isNonTerminal(ch) { return /^[A-Z]$/.test(ch); }
+function asciiSort(a,b){ return a.charCodeAt(0)-b.charCodeAt(0); }
+
+// ---------- Parse grammar ----------
+function parseGrammar(text) {
+  const grammar={}, order=[];
+  const lines=text.split(/\r?\n/).map(l=>l.trim()).filter(Boolean);
+  for(const line of lines){
+    const pos=line.indexOf("->"); if(pos<0) continue;
+    const lhs=line.slice(0,pos).trim(), rhsPart=line.slice(pos+2).trim();
+    const alts=rhsPart.split("|").map(x=>x.replace(/\s+/g,''));
+    if(!grammar[lhs]){grammar[lhs]=[];order.push(lhs);}
+    for(const alt of alts) grammar[lhs].push(alt===''?'@':alt);
+  }
+  return{grammar,order};
+}
+
+// ---------- FIRST iterative ----------
+function computeFIRST(grammar,order){
+  const FIRST={}; for(const A of order) FIRST[A]=new Set();
+  let changed=true;
+  while(changed){ changed=false;
+    for(const A of order){
+      for(const rhs of grammar[A]){
+        let addEps=true;
+        for(let i=0;i<rhs.length;i++){
+          const X=rhs[i];
+          if(!isNonTerminal(X)){ if(!FIRST[A].has(X)){FIRST[A].add(X);changed=true;} addEps=false; break;}
+          for(const f of FIRST[X]) if(f!=='@'&&!FIRST[A].has(f)){FIRST[A].add(f);changed=true;}
+          if(FIRST[X].has('@')) addEps=true; else {addEps=false; break;}
+        }
+        if(addEps&&!FIRST[A].has('@')){FIRST[A].add('@');changed=true;}
+      }
+    }
+  }
+  return FIRST;
+}
+
+// ---------- FOLLOW iterative ----------
+function computeFOLLOW(grammar,order,FIRST){
+  const FOLLOW={}; for(const A of order) FOLLOW[A]=new Set();
+  if(order.length) FOLLOW[order[0]].add('$');
+  let changed=true;
+  while(changed){ changed=false;
+    for(const A of order){
+      for(const rhs of grammar[A]){
+        for(let i=0;i<rhs.length;i++){
+          const B=rhs[i]; if(!isNonTerminal(B)) continue;
+          let firstBeta=new Set(), allEps=true;
+          for(let j=i+1;j<rhs.length;j++){
+            const X=rhs[j];
+            if(!isNonTerminal(X)){ firstBeta.add(X); allEps=false; break;}
+            for(const f of FIRST[X]) if(f!=='@') firstBeta.add(f);
+            if(FIRST[X].has('@')) allEps=true; else {allEps=false; break;}
+          }
+          for(const t of firstBeta) if(!FOLLOW[B].has(t)){FOLLOW[B].add(t);changed=true;}
+          if(allEps||i===rhs.length-1)
+            for(const f of FOLLOW[A]) if(!FOLLOW[B].has(f)){FOLLOW[B].add(f);changed=true;}
+        }
+      }
+    }
+  }
+  return FOLLOW;
+}
+
+// ---------- Build LL(1) Table ----------
+function buildTable(grammar,order,FIRST,FOLLOW){
+  const table={},terms=new Set();
+  for(const A of order){
+    for(const rhs of grammar[A]){
+      let firstAlpha=new Set(), eps=true;
+      for(let i=0;i<rhs.length;i++){
+        const X=rhs[i];
+        if(!isNonTerminal(X)){ firstAlpha.add(X); eps=false; break;}
+        for(const f of FIRST[X]) if(f!=='@') firstAlpha.add(f);
+        if(FIRST[X].has('@')) eps=true; else {eps=false; break;}
+      }
+      if(eps) firstAlpha.add('@');
+      for(const a of firstAlpha){ if(a!=='@'){table[`${A},${a}`]=`${A} -> ${rhs}`;terms.add(a);} }
+      if(firstAlpha.has('@')) for(const b of FOLLOW[A]){ table[`${A},${b}`]=`${A} -> @`; terms.add(b);}
+    }
+  }
+  terms.delete('@'); terms.add('$');
+  return{table,termVec:Array.from(terms).sort(asciiSort)};
+}
+
+// ---------- Rendering ----------
+function renderSetTable(title,map,order){
+  let h=`<div><h3 class="text-lg font-semibold mb-2">${title}</h3>
+  <div class="overflow-auto"><table class="min-w-full border border-gray-300 text-sm">
+  <thead class="bg-gray-100"><tr><th class="p-2 border text-left">Non-Term</th><th class="p-2 border text-left">Set</th></tr></thead><tbody>`;
+  for(const A of order){h+=`<tr><td class="border p-2 font-medium">${A}</td>
+  <td class="border p-2">{ ${Array.from(map[A]||[]).join(", ")} }</td></tr>`;}
+  h+=`</tbody></table></div></div>`; return h;
+}
+function renderParsingTable(title,table,termVec,order){
+  let h=`<div><h3 class="text-lg font-semibold mb-2">${title}</h3>
+  <div class="overflow-auto"><table class="min-w-full border border-gray-300 text-sm">
+  <thead class="bg-gray-100"><tr><th class="p-2 border"> </th>`;
+  for(const t of termVec) h+=`<th class="p-2 border">${t}</th>`;
+  h+=`</tr></thead><tbody>`;
+  for(const A of order){
+    h+=`<tr><td class="border p-2 font-medium">${A}</td>`;
+    for(const t of termVec){
+      const key=`${A},${t}`; h+=`<td class="border p-2 text-center">${table[key]||""}</td>`;
+    }
+    h+=`</tr>`;
+  }
+  h+=`</tbody></table></div></div>`; return h;
+}
+
+// ---------- Main ----------
+document.getElementById('analyzeBtn').onclick=()=>{
+  const input=document.getElementById('inputGrammar').value.trim();
+  if(!input){alert("Please enter or upload a grammar.");return;}
+  const{grammar,order}=parseGrammar(input);
+  const FIRST=computeFIRST(grammar,order);
+  const FOLLOW=computeFOLLOW(grammar,order,FIRST);
+  const{table,termVec}=buildTable(grammar,order,FIRST,FOLLOW);
+  const out=document.getElementById('results');
+  out.innerHTML=renderSetTable("FIRST Sets",FIRST,order)+
+                renderSetTable("FOLLOW Sets",FOLLOW,order)+
+                renderParsingTable("LL(1) Parsing Table",table,termVec,order);
+};
+
+// ---------- Upload file ----------
+document.getElementById('fileInput').addEventListener('change',e=>{
+  const file=e.target.files[0]; if(!file) return;
+  if(!file.name.endsWith('.txt')){ 
+    alert("❌ Invalid file type! Please upload a .txt file only."); 
+    e.target.value=''; 
+    document.getElementById('fileName').textContent=''; 
+    return; 
+  }
+  document.getElementById('fileName').textContent=file.name;
+  const reader=new FileReader();
+  reader.onload=()=>{ document.getElementById('inputGrammar').value=reader.result.trim(); };
+  reader.readAsText(file);
+});
+
+// ---------- Example ----------
+document.getElementById('exampleBtn').onclick=()=>{
+  document.getElementById('inputGrammar').value=`E->TP
+P->@
+P->+TP
+T->FQ
+Q->@
+Q->*FQ
+F->i
+F->(E)`;
+  document.getElementById('fileName').textContent='';
+};
+</script>
+</body>
+</html>
