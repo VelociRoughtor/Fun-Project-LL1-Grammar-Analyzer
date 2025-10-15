@@ -54,7 +54,7 @@ You can use it in two ways:
 
 ### 🖥️ Option 1: Online Demo
 Simply open the live hosted page:  
-[LL(1) Grammar Analyzer](https://velociroughtor.github.io/Fun-Project-LL1-Grammar-Analyzer/){:target="_blank" rel="noopener noreferrer"}
+[LL(1) Grammar Analyzer](https://velociroughtor.github.io/Fun-Project-LL1-Grammar-Analyzer/)
 
 ### 💻 Option 2: Run Locally
 1. Clone this repository:
