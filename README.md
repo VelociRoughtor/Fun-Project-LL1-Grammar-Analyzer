@@ -66,11 +66,4 @@ cd Fun-Project-LL1-Grammar-Analyzer
 
 No setup required — everything runs locally.
 
-FILE Structure
----
-Fun-Project-LL1-Grammar-Analyzer/
-│
-├── index.html        # Main app (HTML + JS + Tailwind CSS)
-├── README.md         # Documentation
-└── 14.input.txt      # Example grammar file (optional)
 
